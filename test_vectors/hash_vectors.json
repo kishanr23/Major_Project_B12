@@ -1,0 +1,52 @@
+{
+  "spec_version": "1.0",
+  "algorithm": "djb2-64",
+  "description": "Canonical test vectors for the TrailGuard djb2-64 hash. Verified by C++ (firmware), Python (dashboard), and TypeScript (mobile). See docs/MESSAGE_HASH_SPEC.md for the full specification.",
+  "separator": ":",
+  "dedup_vectors": [
+    {
+      "description": "Standard hiker + timestamp",
+      "input": "hiker_001:SOS:1700000000",
+      "hex": "0f7b3fee41a74d79",
+      "decimal": "1115555625240579449"
+    },
+    {
+      "description": "Short hiker_id, timestamp zero",
+      "input": "alice:CheckIn:0",
+      "hex": "c5de37603f115d3c",
+      "decimal": "14257894356816059708"
+    },
+    {
+      "description": "Empty hiker_id (edge case)",
+      "input": ":TrailMessage:9999",
+      "hex": "96b1bc537f33cb3e",
+      "decimal": "10858667243369384766"
+    },
+    {
+      "description": "Maximum uint32 timestamp",
+      "input": "hiker_x:SOS:4294967295",
+      "hex": "e394ed2a9ca1e511",
+      "decimal": "16398992910435083537"
+    }
+  ],
+  "message_id_vectors": [
+    {
+      "description": "Standard hiker + node + timestamp",
+      "input": "hiker_001:node_A:1700000000",
+      "hex": "8897f462c390fb2a",
+      "decimal": "9842604215666539306"
+    },
+    {
+      "description": "Short hiker_id, second node, timestamp zero",
+      "input": "alice:node_B:0",
+      "hex": "c7ef77b77442a5ee",
+      "decimal": "14406865362794751470"
+    },
+    {
+      "description": "Maximum uint32 timestamp",
+      "input": "hiker_x:node_Z:4294967295",
+      "hex": "c078a4a5f0adffdb",
+      "decimal": "13869016085101936603"
+    }
+  ]
+}

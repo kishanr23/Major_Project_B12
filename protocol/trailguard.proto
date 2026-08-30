@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package trailguard;
+
+// For generating Python, TS, etc. if needed
+option java_package = "com.trailguard.protocol";
+option java_outer_classname = "TrailGuardProto";
+
+// Sent periodically by the node to the mesh, and also
+// provided over BLE to the connected mobile app.
+message NodeInfo {
+  string node_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  float battery_pct = 4;
+  float solar_mw = 5;
+  uint32 last_seen_unix = 6;
+}
+
+// Sent by the hiker app to indicate they are at the node.
+message CheckIn {
+  string hiker_id = 1;      // pseudonymous, generated on app install
+  string node_id = 2;       // node that relayed this
+  uint32 timestamp_unix = 3;
+  bytes signature = 4;      // Ed25519 over the serialized fields above
+}
+
+// Emergency SOS message.
+message SOS {
+  string hiker_id = 1;
+  string node_id = 2;
+  uint32 timestamp_unix = 3;
+  double hiker_lat = 4;     // optional, if phone GPS available at send time
+  double hiker_lon = 5;
+  string message = 6;       // optional free-text, short
+  bytes signature = 7;
+}
+
+enum PresetCode {
+  PRESET_UNSPECIFIED = 0;
+  ALL_OK_DELAYED = 1;
+  MINOR_INJURY_MOBILE = 2;
+  LOW_ON_WATER_SUPPLIES = 3;
+  WEATHER_TURNING_BACK = 4;
+  NEED_NONURGENT_ASSIST = 5;
+  CUSTOM_TEXT = 15;         // use free_text field below when this code is set
+}
+
+// Status update message. Has lowest priority.
+message TrailMessage {
+  string hiker_id = 1;
+  string node_id = 2;
+  uint32 timestamp_unix = 3;
+  PresetCode preset = 4;
+  string free_text = 5;     // only populated when preset == CUSTOM_TEXT; hard-cap at 140 chars
+  bytes signature = 6;
+}
+
+// Delivery confirmation sent from the Gateway back through the mesh to the
+// originating node, which relays it to the hiker's phone over BLE.
+//
+// The 'signature' field is mandatory — nodes and phones MUST verify it using
+// the known gateway public key before transitioning any UI state to "Delivered".
+// An Ack with a missing or invalid signature MUST be silently dropped; the UI
+// must remain in "Sent to node / Relay unconfirmed" state.
+message Ack {
+  // Canonical message_id of the message being acknowledged.
+  // Computed as: hex(djb2_64("{hiker_id}:{node_id}:{timestamp_unix}"))
+  // See docs/MESSAGE_HASH_SPEC.md for the full canonical definition.
+  string original_message_id = 1;
+  uint32 ack_timestamp_unix = 2;
+  // Ed25519 signature over (original_message_id || ack_timestamp_unix_bytes).
+  // Signed by the gateway's static keypair. Public key is provisioned into
+  // nodes and the mobile app at setup time.
+  bytes signature = 3;
+}
