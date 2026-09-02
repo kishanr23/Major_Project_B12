@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Manage Trails - TrailGuard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2><i class="fa-solid fa-route" style="color: var(--primary); margin-right: 8px;"></i> Trail Database</h2>
+    
+    <table style="margin-top: 16px;">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Center (Lat, Lon)</th>
+                <th>Offline Map</th>
+                <th style="text-align: right;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trail in trails %}
+            <tr>
+                <td style="font-weight: 500;">{{ trail.name }}</td>
+                <td>{{ trail.district }}, {{ trail.state }}, {{ trail.country }}</td>
+                <td style="font-family: monospace; color: var(--text-muted);">{{ trail.center_lat }}, {{ trail.center_lon }}</td>
+                <td>
+                    {% if trail.mbtiles_filename %}
+                    <span class="badge badge-success"><i class="fa-solid fa-check"></i> Installed</span>
+                    {% else %}
+                    <span class="badge badge-warning">Missing</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right;">
+                    <form method="POST" style="display:inline;" onsubmit="return confirm('Delete trail {{ trail.name }}?');">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="trail_id" value="{{ trail.id }}">
+                        <button type="submit" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger); padding: 4px 8px;">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not trails %}
+            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No trails registered.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3><i class="fa-solid fa-plus-circle" style="color: var(--primary); margin-right: 8px;"></i> Add New Trail</h3>
+    <form method="POST" enctype="multipart/form-data" style="margin-top: 16px;">
+        <input type="hidden" name="action" value="add">
+        
+        <div class="grid-2">
+            <div>
+                <label>Trail Name</label>
+                <input type="text" name="name" required placeholder="e.g. Pacific Crest Trail">
+                
+                <div class="grid-3">
+                    <div>
+                        <label>Country</label>
+                        <input type="text" name="country" required value="US">
+                    </div>
+                    <div>
+                        <label>State</label>
+                        <input type="text" name="state" required placeholder="CA">
+                    </div>
+                    <div>
+                        <label>District/Region</label>
+                        <input type="text" name="district" required placeholder="Sierra">
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="grid-2">
+                    <div>
+                        <label>Center Latitude</label>
+                        <input type="number" step="any" name="center_lat" required placeholder="37.8651">
+                    </div>
+                    <div>
+                        <label>Center Longitude</label>
+                        <input type="number" step="any" name="center_lon" required placeholder="-119.5383">
+                    </div>
+                </div>
+                
+                <label>MBTiles Map Database (.mbtiles)</label>
+                <input type="file" name="mbtiles" accept=".mbtiles" style="background: rgba(0,0,0,0.2);">
+                <small style="color: var(--text-muted); display: block; margin-top: -8px; margin-bottom: 16px;">
+                    Required for offline mobile use.
+                </small>
+            </div>
+        </div>
+        
+        <label>Description</label>
+        <textarea name="description" rows="3" placeholder="Trail details..."></textarea>
+        
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload"></i> Save Trail & Map</button>
+    </form>
+</div>
+{% endblock %}

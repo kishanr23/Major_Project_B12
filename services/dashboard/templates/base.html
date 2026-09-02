@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}TrailGuard Dashboard{% endblock %}</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Global Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    {% if current_user.is_authenticated %}
+    <!-- Fixed Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-mountain" style="margin-right: 10px; color: var(--primary);"></i> TrailGuard
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('admin.index') }}" class="nav-item {% if request.endpoint == 'admin.index' %}active{% endif %}">
+                <i class="fa-solid fa-map-location-dot"></i> Live Map
+            </a>
+            
+            {% if current_user.role in ['admin', 'ranger'] %}
+            <a href="{{ url_for('admin.nodes') }}" class="nav-item {% if request.endpoint == 'admin.nodes' %}active{% endif %}">
+                <i class="fa-solid fa-satellite-dish"></i> Mesh Nodes
+            </a>
+            {% endif %}
+            
+            {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('admin.analytics') }}" class="nav-item {% if request.endpoint == 'admin.analytics' %}active{% endif %}">
+                <i class="fa-solid fa-chart-pie"></i> Analytics
+            </a>
+            <a href="{{ url_for('trails.manage_trails') }}" class="nav-item {% if request.endpoint == 'trails.manage_trails' %}active{% endif %}">
+                <i class="fa-solid fa-route"></i> Manage Trails
+            </a>
+            <a href="{{ url_for('auth_routes.manage_users') }}" class="nav-item {% if request.endpoint == 'auth_routes.manage_users' %}active{% endif %}">
+                <i class="fa-solid fa-users-gear"></i> System Users
+            </a>
+            <a href="{{ url_for('admin.security_log') }}" class="nav-item {% if request.endpoint == 'admin.security_log' %}active{% endif %}">
+                <i class="fa-solid fa-clipboard-list"></i> Security Log
+            </a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <main class="main-wrapper">
+        <!-- Topbar -->
+        <header class="topbar">
+            <div>
+                <!-- Breadcrumbs or Page Title could go here -->
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="color: var(--text-muted); font-size: 0.85rem; padding-right: 16px; border-right: 1px solid var(--border);">
+                    ⏱️ Load: <span id="perf-metrics" style="font-family: monospace; font-weight: bold; color: var(--primary);">...</span>
+                </div>
+                <div style="color: var(--text-muted); font-size: 0.9rem;">
+                    Logged in as <strong>{{ current_user.username }}</strong> 
+                    <span class="badge badge-neutral" style="margin-left: 8px;">{{ current_user.role }}</span>
+                </div>
+                <a href="{{ url_for('auth_routes.logout') }}" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.85rem;">
+                    <i class="fa-solid fa-right-from-bracket" style="margin-right: 6px;"></i> Logout
+                </a>
+            </div>
+        </header>
+
+        <!-- Dynamic Content -->
+        <div class="content-area {% block content_class %}{% endblock %}">
+            
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div style="margin-bottom: 20px;">
+                        {% for category, message in messages %}
+                            <div class="card" style="padding: 12px 16px; margin-bottom: 8px; border-left: 4px solid {% if category == 'error' %}var(--danger){% else %}var(--primary){% endif %};">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    {% else %}
+        <!-- Unauthenticated View (Login) -->
+        <main class="main-wrapper" style="align-items: center; justify-content: center; background: url('https://images.unsplash.com/photo-1542224566-6e85f2e6772f?q=80&w=2560') center/cover;">
+            <div style="position: absolute; inset: 0; background: rgba(18, 24, 20, 0.85);"></div>
+            <div style="position: relative; z-index: 10; width: 100%; max-width: 400px;">
+                {% block login_content %}{% endblock %}
+            </div>
+        </main>
+    {% endif %}
+
+    {% block scripts %}{% endblock %}
+    
+    <!-- Performance Monitor -->
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const perf = window.performance.timing;
+                if (perf.loadEventEnd > 0) {
+                    const uiTime = perf.domContentLoadedEventEnd - perf.navigationStart;
+                    const fullTime = perf.loadEventEnd - perf.navigationStart;
+                    document.getElementById('perf-metrics').innerText = `UI: ${uiTime}ms | Total: ${fullTime}ms`;
+                }
+            }, 0);
+        });
+    </script>
+</body>
+</html>

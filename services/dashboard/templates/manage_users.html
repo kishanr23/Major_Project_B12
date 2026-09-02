@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}System Users - TrailGuard{% endblock %}
+
+{% block content %}
+<div class="card" style="min-height: calc(100vh - var(--topbar-height) - 48px);">
+    <div class="card-header">
+        <div>
+            <h2 style="margin-bottom: 4px;"><i class="fa-solid fa-users-gear" style="color: var(--text-muted); margin-right: 8px;"></i> System Users</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Overview of field agents and administrative staff.</p>
+        </div>
+        <button class="btn btn-primary" style="padding: 10px 20px;" onclick="document.getElementById('add-user-form').style.display='block';">Add New User</button>
+    </div>
+
+    <table style="margin-top: 16px;">
+        <thead>
+            <tr>
+                <th>User Avatar</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Email Address</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td style="width: 60px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background-color: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem;">
+                        {{ u.username[0] | upper }}
+                    </div>
+                </td>
+                <td style="font-weight: 500;">{{ u.username }}</td>
+                <td>
+                    {{ u.role | capitalize }}
+                </td>
+                <td style="color: var(--text-muted);">{{ u.username | lower }}@trailguard.local</td>
+                <td style="text-align: right;">
+                    {% if u.username != current_user.username %}
+                    <form method="POST" style="display:inline;" onsubmit="return confirm('Delete user {{ u.username }}?');">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="username" value="{{ u.username }}">
+                        <button type="button" class="btn btn-outline" style="color: var(--text-muted); border-color: transparent; padding: 4px 8px;">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button type="submit" class="btn btn-outline" style="color: var(--danger); border-color: transparent; padding: 4px 8px;">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </form>
+                    {% else %}
+                    <span style="color: var(--text-muted); font-size: 0.85rem;">Current User</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card" id="add-user-form" style="display: none; position: absolute; top: 100px; left: 50%; transform: translateX(-50%); width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 2000;">
+    <div class="card-header">
+        <h3 class="card-title">Add New User</h3>
+        <button onclick="document.getElementById('add-user-form').style.display='none';" class="btn" style="padding: 4px; background: transparent;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="POST">
+        <input type="hidden" name="action" value="add">
+        <div style="margin-bottom: 16px;">
+            <label for="username">Username / Full Name</label>
+            <input type="text" name="username" required>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <label for="password">Password</label>
+            <input type="password" name="password" required>
+        </div>
+        <div style="margin-bottom: 24px;">
+            <label for="role">Role</label>
+            <select name="role">
+                <option value="ranger">Ranger (Default)</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('add-user-form').style.display='none';">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

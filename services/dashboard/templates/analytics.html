@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Analytics - TrailGuard{% endblock %}
+
+{% block content %}
+<div class="card-header" style="margin-bottom: 24px;">
+    <div>
+        <h2 style="margin-bottom: 4px;"><i class="fa-solid fa-chart-pie" style="color: var(--text-muted); margin-right: 8px;"></i> Analytics</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Overview of mesh network traffic and incident volumes.</p>
+    </div>
+    <select style="width: auto; margin: 0; display: inline-block;">
+        <option>Time range: Last 30 Days</option>
+        <option>Time range: Last 7 Days</option>
+    </select>
+</div>
+
+<div class="grid-2">
+    <!-- Chart 1 -->
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+            <span class="card-title">Hiker Check-in Volume</span>
+        </div>
+        <div style="height: 250px;">
+            <canvas id="checkinChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Chart 2 -->
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+            <span class="card-title">Node Uptime</span>
+        </div>
+        <div style="height: 250px; display: flex; gap: 16px;">
+            <div style="flex: 1;"><canvas id="uptimeChart"></canvas></div>
+            <div style="width: 150px; background-color: #e5e5e5; border-radius: var(--radius-sm); overflow: hidden; position: relative;">
+                <div id="analytics-mini-map" style="width: 100%; height: 100%;"></div>
+            </div>
+        </div>
+    </div>
+    
+
+
+    <!-- SOS History -->
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+            <span class="card-title">SOS Incident History</span>
+        </div>
+        <div style="height: 250px; overflow-y: auto;">
+            {% for _ in range(3) %}
+            <div style="background-color: rgba(0,0,0,0.2); padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-weight: 600; color: var(--text-main);">SOS Incident</span>
+                    <span class="badge badge-danger">New</span>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    Hiker: 8f92a1c4...<br>
+                    Resolved by: System <span style="float: right;">10:30 AM</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+    // Maps
+    const m1 = L.map('analytics-mini-map', { zoomControl: false }).setView([13.42, 75.25], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m1);
+
+    // Charts
+    new Chart(document.getElementById('checkinChart'), {
+        type: 'line',
+        data: {
+            labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+            datasets: [{
+                data: [120, 190, 300, 250, 200, 400, 380],
+                borderColor: '#F97316',
+                borderWidth: 2,
+                tension: 0.4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    new Chart(document.getElementById('uptimeChart'), {
+        type: 'bar',
+        data: {
+            labels: ['N1', 'N2', 'N3', 'N4', 'N5', 'N6'],
+            datasets: [{
+                data: [100, 98, 100, 85, 100, 92],
+                backgroundColor: '#10B981'
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+</script>
+{% endblock %}

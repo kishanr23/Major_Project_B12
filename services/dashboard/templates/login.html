@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block login_content %}
+<div class="card" style="box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);">
+    <div style="text-align: center; margin-bottom: 24px;">
+        <i class="fa-solid fa-mountain-sun" style="font-size: 3rem; color: var(--primary); margin-bottom: 16px;"></i>
+        <h2>TrailGuard Systems</h2>
+        <p style="color: var(--text-muted); margin-top: 8px;">Authorized Personnel Only</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div style="background-color: rgba(230, 57, 70, 0.15); color: var(--danger); border-left: 4px solid var(--danger); padding: 12px; margin-bottom: 16px; border-radius: 4px; font-size: 0.9rem;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth_routes.login') }}">
+        <div style="margin-bottom: 16px;">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required autocomplete="username">
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 1rem;">
+            <i class="fa-solid fa-lock" style="margin-right: 8px;"></i> Access System
+        </button>
+    </form>
+</div>
+{% endblock %}

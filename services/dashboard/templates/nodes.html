@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Mesh Nodes - TrailGuard{% endblock %}
+
+{% block content %}
+<div class="card" style="display: flex; flex-direction: column; height: calc(100vh - var(--topbar-height) - 48px);">
+    <div class="card-header">
+        <div>
+            <h2 style="margin-bottom: 4px;"><i class="fa-solid fa-satellite-dish" style="color: var(--text-muted); margin-right: 8px;"></i> Mesh Nodes</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Overview of mesh network traffic and incident volumes.</p>
+        </div>
+        <button class="btn btn-primary" style="padding: 10px 20px;" onclick="document.getElementById('register-modal').style.display='flex'">Register New Node</button>
+    </div>
+
+    <!-- Registration Modal -->
+    <div id="register-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+        <div class="card" style="width: 400px; padding: 24px; position: relative;">
+            <button onclick="document.getElementById('register-modal').style.display='none'" style="position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+            <h3 style="margin-bottom: 16px; color: var(--text-main);">Register Node</h3>
+            <form method="POST" action="/nodes/register">
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem;">Node ID (e.g. !abcd1234)</label>
+                    <input type="text" name="node_id" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-main);">
+                </div>
+                <div style="margin-bottom: 24px;">
+                    <label style="display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem;">Public Key (Hex)</label>
+                    <input type="text" name="public_key" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-main);">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Register</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="grid-2" style="flex: 1; overflow: hidden; gap: 0;">
+        <!-- Left Map -->
+        <div style="background-color: #e5e5e5; border-radius: var(--radius-md) 0 0 var(--radius-md); overflow: hidden; position: relative;">
+            <div id="mini-map" style="width: 100%; height: 100%;"></div>
+        </div>
+        
+        <!-- Right Table -->
+        <div style="overflow-y: auto; border: 1px solid var(--border); border-radius: 0 var(--radius-md) var(--radius-md) 0; border-left: none;">
+            <table>
+                <thead style="position: sticky; top: 0; background-color: var(--bg-surface); z-index: 10;">
+                    <tr>
+                        <th>Node ID</th>
+                        <th>Location</th>
+                        <th>Signal Strength (RSSI)</th>
+                        <th>Connectivity Status</th>
+                        <th>Active Hiker Hops</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for n in nodes %}
+                    <tr>
+                        <td style="font-weight: 500;">{{ n.node_id }}</td>
+                        <td>{{ n.latitude|round(4) }}, {{ n.longitude|round(4) }}</td>
+                        <td>{{ n.battery_pct|round(0) }}% Battery</td>
+                        <td>
+                            {% set now = namespace(value=0) %}
+                            {# Approximate connectivity check #}
+                            <span class="badge badge-success">Connected</span>
+                        </td>
+                        <td>0</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not nodes %}
+                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No nodes registered in the database.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+    const map = L.map('mini-map', { zoomControl: false }).setView([13.420, 75.250], 12);
+    L.control.zoom({ position: 'topleft' }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+</script>
+{% endblock %}

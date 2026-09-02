@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title"><i class="fa-solid fa-shield-halved"></i> Security Log</h2>
+        <div>
+            <button class="btn btn-outline" onclick="location.reload()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Hiker ID</th>
+                    <th>Event Type</th>
+                    <th>Message</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="security-table-body">
+                {% for log in logs %}
+                <tr data-log-id="{{ log.id }}">
+                    <td>
+                        <script>
+                            document.write(new Date(Number("{{ log.timestamp_unix }}") * 1000).toLocaleString());
+                        </script>
+                    </td>
+                    <td>{{ log.hiker_id }}</td>
+                    <td>
+                        {% if log.event_type == 'routine_rejection' %}
+                            <span class="badge badge-warning">Routine Drop</span>
+                        {% elif log.event_type == 'spoofing_attack' %}
+                            <span class="badge badge-danger">Spoofing Attack</span>
+                        {% elif log.event_type == 'fleet_escalation' %}
+                            <span class="badge badge-danger">Fleet Escalation</span>
+                        {% else %}
+                            <span class="badge badge-neutral">{{ log.event_type }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ log.message }}</td>
+                    <td id="status-{{ log.id }}">
+                        {% if log.escalation_status == 'active' %}
+                            <span class="badge badge-danger">Active Escalation</span>
+                        {% elif log.escalation_status == 'reviewed' %}
+                            <span class="badge badge-success">Reviewed</span>
+                        {% elif log.escalation_status == 'confirmed_attack' %}
+                            <span class="badge badge-danger">Confirmed Attack</span>
+                        {% else %}
+                            <span class="badge badge-neutral">{{ log.escalation_status }}</span>
+                        {% endif %}
+                        
+                        {% if log.resolved_by %}
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+                                By {{ log.resolved_by }}
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.escalation_status == 'active' %}
+                            <div class="action-buttons" id="actions-{{ log.id }}">
+                                <button class="btn btn-primary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="resolveLog('{{ log.id }}', 'reviewed')">Mark Reviewed</button>
+                                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="resolveLog('{{ log.id }}', 'confirmed_attack')">Confirm Attack</button>
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">
+                        No security events logged.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function resolveLog(logId, status) {
+    fetch(`/security/resolve/${logId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            const statusCell = document.getElementById(`status-${logId}`);
+            if (status === 'reviewed') {
+                statusCell.innerHTML = '<span class="badge badge-success">Reviewed</span><div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">By {{ current_user.username }}</div>';
+            } else {
+                statusCell.innerHTML = '<span class="badge badge-danger">Confirmed Attack</span><div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">By {{ current_user.username }}</div>';
+            }
+            
+            const actionsDiv = document.getElementById(`actions-${logId}`);
+            if (actionsDiv) {
+                actionsDiv.remove();
+            }
+        } else {
+            alert('Failed to resolve log');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Error resolving log');
+    });
+}
+</script>
+{% endblock %}

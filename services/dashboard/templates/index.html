@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}Live Map - TrailGuard{% endblock %}
+
+{% block content_class %}no-padding{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS & JS (Using fast Cloudflare CDN) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<!-- Socket.IO (Using CDNJS instead of cdn.socket.io to avoid firewall timeouts) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background-color: var(--bg-dark); /* Dark background before tiles load */
+        }
+
+        /* Dashboard Floating Widgets */
+        .right-panel-stack {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 1000;
+            max-height: calc(100vh - 48px - var(--topbar-height));
+            overflow-y: auto;
+        }
+
+        .bottom-panel-row {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            display: flex;
+            gap: 16px;
+            z-index: 1000;
+        }
+
+        .widget {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            pointer-events: auto;
+        }
+
+        .widget-title {
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-bottom: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .incident-card {
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+        
+        .incident-card:hover {
+            border-color: var(--border-highlight);
+            transform: translateX(-2px);
+        }
+
+        .incident-card.sos {
+            border-left: 4px solid var(--danger);
+            background: linear-gradient(90deg, rgba(225, 29, 72, 0.1), rgba(0,0,0,0.1));
+        }
+
+        .incident-card.checkin {
+            border-left: 4px solid var(--primary);
+        }
+    
+    .incident-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+    }
+    
+    .incident-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+
+    /* Override Leaflet controls for dark theme */
+    .leaflet-bar a {
+        background-color: var(--bg-surface) !important;
+        color: var(--text-main) !important;
+        border-bottom: 1px solid var(--border) !important;
+    }
+    .leaflet-bar a:hover {
+        background-color: var(--primary) !important;
+        color: #fff !important;
+    }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+        background-color: var(--bg-surface) !important;
+        color: var(--text-main) !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="map"></div>
+
+<!-- Bottom Left Widgets -->
+<div class="bottom-panel-row">
+    <div class="widget" style="width: 300px; height: 200px;">
+        <div class="widget-title">Mesh Node Topology</div>
+        <canvas id="topologyChart"></canvas>
+    </div>
+    <div class="widget" style="width: 250px; height: 200px; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="widget-title">Hiker Activity</div>
+        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 8px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Total Hikers</div>
+            <div style="font-size: 1.5rem; font-weight: bold;">48</div>
+        </div>
+        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm);">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Active Check-ins</div>
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">13</div>
+        </div>
+    </div>
+</div>
+
+<!-- Right Panel Stack -->
+<div class="right-panel-stack">
+    
+    <!-- System Vitals -->
+    <div class="widget">
+        <div class="widget-title">System Vitals</div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Connection</span>
+            <span style="font-size: 0.8rem; color: var(--success); font-weight: bold;">100%</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; margin-bottom: 16px;">
+            <div style="width: 100%; height: 100%; background: var(--success);"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Power</span>
+            <span style="font-size: 0.8rem; color: var(--primary); font-weight: bold;">62 mins</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden;">
+            <div style="width: 62%; height: 100%; background: var(--primary);"></div>
+        </div>
+    </div>
+
+    <!-- Emergency Dispatch -->
+    <div class="widget">
+        <div class="widget-title">Emergency Dispatch</div>
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 8px; color: var(--success); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-check-circle"></i> Routine Activity
+        </div>
+        <div style="background: rgba(225, 29, 72, 0.1); border: 1px solid rgba(225, 29, 72, 0.2); padding: 12px; border-radius: var(--radius-sm); color: var(--danger); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Total SOS Incidents: 0
+        </div>
+    </div>
+
+    <!-- Live Feed (Messages) -->
+    <div class="widget" style="flex: 1; display: flex; flex-direction: column; min-height: 300px;">
+        <div class="widget-title" style="justify-content: space-between;">
+            <span>Live Feed</span>
+            <span class="badge badge-success" id="connection-status">Connected</span>
+        </div>
+        <div class="panel-content" id="messages-log" style="overflow-y: auto; flex: 1; padding: 0;">
+            <!-- Incidents injected here via JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    const map = L.map('map', { zoomControl: false }).setView([13.2505, 75.2530], 11); // Kudremukh, Karnataka
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // Standard OpenStreetMap (Most reliable globally)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markers = {};
+    const socket = io();
+
+    socket.on('connect', () => {
+        document.getElementById('connection-status').className = 'badge badge-success';
+        document.getElementById('connection-status').innerText = 'Connected';
+    });
+
+    socket.on('disconnect', () => {
+        document.getElementById('connection-status').className = 'badge badge-danger';
+        document.getElementById('connection-status').innerText = 'Disconnected';
+    });
+
+    function getMarkerColor(msg_type) {
+        return msg_type === 'SOS' ? '#E11D48' : '#F97316';
+    }
+
+    function createIcon(color) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${color}" width="32px" height="32px">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            <circle cx="12" cy="9" r="2.5" fill="#0F172A"/>
+        </svg>`;
+        return L.divIcon({
+            className: 'custom-icon',
+            html: svg,
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+    }
+
+    function addMessageToPanel(msg) {
+        const log = document.getElementById("messages-log");
+        const dateStr = new Date(msg.timestamp * 1000).toLocaleTimeString();
+        const typeClass = msg.msg_type === 'SOS' ? 'sos' : 'checkin';
+        const typeIcon = msg.msg_type === 'SOS' ? 'fa-triangle-exclamation' : 'fa-location-dot';
+        const typeColor = msg.msg_type === 'SOS' ? 'var(--danger)' : 'var(--primary)';
+
+        const card = document.createElement("div");
+        card.className = `incident-card ${typeClass}`;
+        card.innerHTML = `
+            <div class="incident-header">
+                <strong style="color: ${typeColor};"><i class="fa-solid ${typeIcon}"></i> ${msg.msg_type}</strong>
+                <span style="color: var(--text-muted);">${dateStr}</span>
+            </div>
+            <div style="font-size: 0.9rem;">
+                <strong>Hiker ID:</strong> <span style="font-family: monospace;">${msg.hiker_id.substring(0,8)}...</span><br>
+                <strong>Node ID:</strong> <span style="font-family: monospace;">${msg.node_id}</span>
+            </div>
+            ${msg.is_new_device ? `<span class="badge badge-warning" style="margin-top: 8px;">New Device (TOFU)</span>` : ''}
+            
+            <div class="incident-actions">
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem;" onclick="map.flyTo([${msg.lat}, ${msg.lon}], 15);">
+                    <i class="fa-solid fa-crosshairs"></i> Locate
+                </button>
+            </div>
+        `;
+        log.insertBefore(card, log.firstChild);
+    }
+
+    socket.on('new_message', (msg) => {
+        addMessageToPanel(msg);
+        
+        if (msg.lat && msg.lon) {
+            const color = getMarkerColor(msg.msg_type);
+            const icon = createIcon(color);
+            
+            const popupHtml = `
+                <strong style="color: ${color};">${msg.msg_type}</strong><br>
+                Hiker: ${msg.hiker_id.substring(0,8)}...<br>
+                Time: ${new Date(msg.timestamp * 1000).toLocaleTimeString()}
+            `;
+
+            if (markers[msg.hiker_id]) {
+                markers[msg.hiker_id].setLatLng([msg.lat, msg.lon]).setIcon(icon).setPopupContent(popupHtml);
+            } else {
+                markers[msg.hiker_id] = L.marker([msg.lat, msg.lon], { icon: icon }).bindPopup(popupHtml).addTo(map);
+            }
+
+            if (msg.msg_type === 'SOS') {
+                map.flyTo([msg.lat, msg.lon], 14, { animate: true, duration: 1.5 });
+            }
+        }
+    });
+
+    socket.on('security_escalation', (data) => {
+        const log = document.getElementById("messages-log");
+        const card = document.createElement("div");
+        card.className = "incident-card";
+        card.style.borderLeft = "4px solid #F59E0B";
+        card.innerHTML = `
+            <div class="incident-header">
+                <strong style="color: #F59E0B;"><i class="fa-solid fa-shield-halved"></i> Security Alert</strong>
+                <span style="color: var(--text-muted);">Just now</span>
+            </div>
+            <div style="font-size: 0.9rem;">
+                <strong>${data.type}</strong><br>
+                ${data.message}
+            </div>
+        `;
+        log.insertBefore(card, log.firstChild);
+    });
+
+    // Load initial data
+    fetch('/api/messages')
+        .then(res => res.json())
+        .then(messages => {
+            messages.reverse().forEach(msg => {
+                if(msg.payload_json) {
+                    try {
+                        const payload = JSON.parse(msg.payload_json);
+                        msg.lat = payload.lat;
+                        msg.lon = payload.lon;
+                    } catch(e){}
+                }
+                addMessageToPanel(msg);
+                
+                if (msg.lat && msg.lon) {
+                    const color = getMarkerColor(msg.msg_type);
+                    const icon = createIcon(color);
+                    markers[msg.hiker_id] = L.marker([msg.lat, msg.lon], { icon: icon })
+                        .bindPopup(`<strong style="color: ${color};">${msg.msg_type}</strong><br>Hiker: ${msg.hiker_id.substring(0,8)}...`)
+                        .addTo(map);
+                }
+            });
+            // Auto fit bounds if markers exist
+            const group = new L.featureGroup(Object.values(markers));
+            if(Object.keys(markers).length > 0) {
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        });
+
+    // Chart.js initialization for Mesh Node Topology
+    const ctx = document.getElementById('topologyChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['14:00', '16:00', '18:00', '20:00', '22:00'],
+                datasets: [{
+                    label: 'Active Nodes',
+                    data: [2, 4, 3, 7, 12],
+                    borderColor: '#F97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { display: false }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}
