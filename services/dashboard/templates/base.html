@@ -40,6 +40,9 @@
             <a href="{{ url_for('trails.manage_trails') }}" class="nav-item {% if request.endpoint == 'trails.manage_trails' %}active{% endif %}">
                 <i class="fa-solid fa-route"></i> Manage Trails
             </a>
+            <a href="{{ url_for('admin.sos_alerts') }}" class="nav-item {% if request.endpoint == 'admin.sos_alerts' %}active{% endif %}" style="color: var(--danger);">
+                <i class="fa-solid fa-triangle-exclamation"></i> SOS Alerts
+            </a>
             <a href="{{ url_for('auth_routes.manage_users') }}" class="nav-item {% if request.endpoint == 'auth_routes.manage_users' %}active{% endif %}">
                 <i class="fa-solid fa-users-gear"></i> System Users
             </a>

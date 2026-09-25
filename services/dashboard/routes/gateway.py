@@ -106,8 +106,8 @@ def ingest():
             (mid, msg_type, hiker_id, node_id, ts, payload_json),
         )
         db.commit()
-    except Exception:
-        pass  # duplicate message_id
+    except Exception as e:
+        logging.debug(f"Duplicate or DB error for message_id={mid}: {e}")
 
     ack_event: dict | None = None
     if msg_type in ("SOS", "CheckIn"):

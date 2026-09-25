@@ -25,6 +25,64 @@ def analytics():
     
     return render_template("analytics.html", sos_count=sos_count, checkin_count=checkin_count)
 
+@admin_bp.get("/sos_alerts")
+@login_required
+@require_role("ranger")
+def sos_alerts():
+    db = get_db(current_app.config["DB_PATH"])
+    cur = db.execute("SELECT * FROM messages WHERE msg_type = 'SOS' ORDER BY timestamp_unix DESC")
+    alerts = [dict(r) for r in cur.fetchall()]
+    
+    total_sos = len(alerts)
+    total_responded = sum(1 for a in alerts if a['status'] != 'new' or a['acknowledged_by'])
+    
+    response_times = []
+    for a in alerts:
+        if a['acknowledged_at']:
+            response_times.append(a['acknowledged_at'] - a['timestamp_unix'])
+        elif a['resolved_at']:
+            response_times.append(a['resolved_at'] - a['timestamp_unix'])
+            
+    avg_response_time = (sum(response_times) / len(response_times)) if response_times else 0
+    avg_minutes = round(avg_response_time / 60, 1)
+
+    return render_template("sos_alerts.html", 
+                           alerts=alerts, 
+                           total_sos=total_sos, 
+                           total_responded=total_responded, 
+                           avg_minutes=avg_minutes)
+
+@admin_bp.post("/sos_alerts/<int:alert_id>/status")
+@login_required
+@require_role("ranger")
+def update_sos_status(alert_id):
+    from flask import request
+    import time
+    from flask_login import current_user
+    
+    data = request.get_json()
+    new_status = data.get("status")
+    
+    if new_status not in ("acknowledged", "resolved"):
+        return {"error": "Invalid status"}, 400
+        
+    db = get_db(current_app.config["DB_PATH"])
+    now = int(time.time())
+    
+    if new_status == "acknowledged":
+        db.execute(
+            "UPDATE messages SET status = ?, acknowledged_by = ?, acknowledged_at = ? WHERE id = ? AND status = 'new'",
+            (new_status, current_user.username, now, alert_id)
+        )
+    elif new_status == "resolved":
+        db.execute(
+            "UPDATE messages SET status = ?, resolved_by = ?, resolved_at = ? WHERE id = ?",
+            (new_status, current_user.username, now, alert_id)
+        )
+        
+    db.commit()
+    return {"status": "ok"}
+
 @admin_bp.get("/nodes")
 @login_required
 @require_role("ranger")

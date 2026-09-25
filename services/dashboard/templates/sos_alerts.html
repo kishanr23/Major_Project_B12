@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}SOS Alerts - TrailGuard{% endblock %}
+
+{% block content %}
+<div class="card-header" style="margin-bottom: 24px;">
+    <div>
+        <h2 style="margin-bottom: 4px;"><i class="fa-solid fa-triangle-exclamation" style="color: var(--danger); margin-right: 8px;"></i> SOS Alerts</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Monitor and respond to emergency distress signals.</p>
+    </div>
+</div>
+
+<div class="grid-3" style="margin-bottom: 24px;">
+    <!-- Metric 1 -->
+    <div class="card" style="margin-bottom: 0;">
+        <span class="stat-label">Total SOS Alerts</span>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span class="stat-value" style="color: var(--danger);">{{ total_sos }}</span>
+        </div>
+    </div>
+    
+    <!-- Metric 2 -->
+    <div class="card" style="margin-bottom: 0;">
+        <span class="stat-label">Responded / Acknowledged</span>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span class="stat-value" style="color: var(--primary);">{{ total_responded }}</span>
+        </div>
+    </div>
+
+    <!-- Metric 3 -->
+    <div class="card" style="margin-bottom: 0;">
+        <span class="stat-label">Average Response Time</span>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span class="stat-value" style="color: var(--success);">{{ avg_minutes }} min</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">SOS History</span>
+    </div>
+    
+    <div style="overflow-x: auto;">
+        <table style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Time Received</th>
+                    <th>Hiker ID</th>
+                    <th>Node ID</th>
+                    <th>Status</th>
+                    <th>Response Time</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr>
+                    <td>
+                        <span class="sos-time-value" data-ts="{{ alert.timestamp_unix }}"></span>
+                    </td>
+                    <td><span style="font-family: monospace; color: var(--text-muted);">{{ alert.hiker_id[:8] }}...</span></td>
+                    <td>{{ alert.node_id }}</td>
+                    <td>
+                        {% if alert.status == 'new' %}
+                            <span class="badge badge-danger">New</span>
+                        {% elif alert.status == 'acknowledged' %}
+                            <span class="badge badge-warning">Acknowledged</span>
+                        {% else %}
+                            <span class="badge badge-success">Resolved</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if alert.acknowledged_at %}
+                            {{ ((alert.acknowledged_at - alert.timestamp_unix) / 60)|round(1) }} min
+                        {% elif alert.resolved_at %}
+                            {{ ((alert.resolved_at - alert.timestamp_unix) / 60)|round(1) }} min
+                        {% else %}
+                            --
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" 
+                            data-id="{{ alert.id }}"
+                            data-msgid="{{ alert.message_id }}"
+                            data-hikerid="{{ alert.hiker_id }}"
+                            data-nodeid="{{ alert.node_id }}"
+                            data-ts="{{ alert.timestamp_unix }}"
+                            data-status="{{ alert.status }}"
+                            data-payload="{{ alert.payload_json | forceescape }}"
+                            onclick="openSosModal(this.dataset.id, this.dataset.msgid, this.dataset.hikerid, this.dataset.nodeid, parseInt(this.dataset.ts, 10), this.dataset.status, this.dataset.payload)">
+                            View Details
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                        No SOS alerts recorded.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SOS Details Modal -->
+<div id="sosModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 500px; margin: 24px; position: relative;">
+        <button onclick="closeSosModal()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">&times;</button>
+        <h3 style="margin-bottom: 16px; color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> SOS Alert Details</h3>
+        
+        <div style="margin-bottom: 12px;"><strong>Hiker ID:</strong> <span id="modal-hiker-id" style="font-family: monospace; color: var(--text-muted);"></span></div>
+        <div style="margin-bottom: 12px;"><strong>Node ID:</strong> <span id="modal-node-id"></span></div>
+        <div style="margin-bottom: 12px;"><strong>Time:</strong> <span id="modal-time"></span></div>
+        <div style="margin-bottom: 12px;"><strong>Status:</strong> <span id="modal-status"></span></div>
+        
+        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 24px; font-family: monospace; font-size: 0.85rem; word-break: break-all; color: var(--text-muted);">
+            <div style="margin-bottom: 4px; font-weight: bold; color: var(--text-main);">Payload:</div>
+            <span id="modal-payload"></span>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn btn-outline" onclick="updateSosStatus('acknowledged')" id="btn-ack">Acknowledge</button>
+            <button class="btn btn-primary" onclick="updateSosStatus('resolved')" id="btn-resolve">Mark Resolved</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentAlertId = null;
+
+    function openSosModal(id, msg_id, hiker_id, node_id, ts, status, payload) {
+        currentAlertId = id;
+        document.getElementById('modal-hiker-id').innerText = hiker_id;
+        document.getElementById('modal-node-id').innerText = node_id;
+        document.getElementById('modal-time').innerText = new Date(ts * 1000).toLocaleString();
+        
+        let statusHtml = '';
+        if(status === 'new') statusHtml = '<span class="badge badge-danger">New</span>';
+        else if(status === 'acknowledged') statusHtml = '<span class="badge badge-warning">Acknowledged</span>';
+        else statusHtml = '<span class="badge badge-success">Resolved</span>';
+        document.getElementById('modal-status').innerHTML = statusHtml;
+        
+        document.getElementById('modal-payload').innerText = payload || 'No payload data';
+        
+        document.getElementById('btn-ack').style.display = (status === 'new') ? 'block' : 'none';
+        document.getElementById('btn-resolve').style.display = (status !== 'resolved') ? 'block' : 'none';
+
+        document.getElementById('sosModal').style.display = 'flex';
+    }
+
+    function closeSosModal() {
+        document.getElementById('sosModal').style.display = 'none';
+        currentAlertId = null;
+    }
+
+    async function updateSosStatus(newStatus) {
+        if (!currentAlertId) return;
+        try {
+            const res = await fetch(`/sos_alerts/${currentAlertId}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert("Failed to update status.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Network error.");
+        }
+    }
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.sos-time-value').forEach(el => {
+            if (el.dataset.ts) {
+                el.innerText = new Date(parseInt(el.dataset.ts, 10) * 1000).toLocaleString();
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+android/
+ios/
+*.log
+.git/
+services/
+hardware/
+tests/
+explanation/
+.venv/
+venv/
+*.db
+*.sqlite3

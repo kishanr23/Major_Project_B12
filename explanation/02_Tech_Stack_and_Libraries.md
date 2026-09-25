@@ -9,6 +9,8 @@ The mobile app is built to be cross-platform, highly performant, and capable of 
 - **Offline Mapping:** `react-native-maplibre-gl` (MapLibre GL Native). We use MBTiles (Mapbox Vector Tiles) because vector tiles are infinitely scalable and take up significantly less storage space than pre-rendered raster images, allowing a hiker to download an entire National Park map to their phone prior to losing cell service.
 - **Cryptography:** `react-native-quick-crypto`. A highly performant crypto library for React Native that binds directly to C++ (JSI) rather than relying on slow JavaScript bridges. Used to generate Ed25519 keypairs and sign payloads.
 - **Secure Storage:** `react-native-keychain`. Used to securely store the hiker's private Ed25519 key in the iOS Secure Enclave or Android Keystore.
+- **BLE Connectivity:** `react-native-ble-plx`. Used to scan, connect, and communicate with the personal Heltec LoRa node over Bluetooth Low Energy.
+- **Location Services:** `expo-location`. Provides GPS coordinates for Check-In and SOS payloads. Also drives the compass/bearing navigation screen.
 - **State Management:** `AsyncStorage` for local persistence of settings (like WiFi Simulator toggles).
 
 ## 2. Firmware (Hardware Nodes)
@@ -28,5 +30,7 @@ The backend runs locally at the Ranger station. It does not rely on cloud servic
 - **Frontend / UI:** Vanilla HTML, CSS, and JavaScript. 
   - *Templating:* Jinja2 (Flask's default).
   - *Styling:* Custom CSS (no Tailwind), utilizing modern CSS variables for Dark Navy / Amber aesthetics.
-  - *Interactivity:* Vanilla JS fetch requests (`/api/...`) that poll the backend for new messages and update the DOM dynamically without page reloads.
-- **Hardware Bridging:** The `meshtastic` Python library. It opens a serial connection to the Gateway Node plugged into the laptop via USB, reading binary packets off the radio and injecting them into the Flask API.
+  - *Mapping:* Leaflet.js with OpenStreetMap tiles for the interactive hiker location map.
+  - *Real-Time Push:* Flask-SocketIO. The backend emits events (`new_message`, `new_device_alert`, `security_escalation`) instantly when data arrives, providing immediate UI updates without waiting for polling.
+  - *Polling Fallback:* Vanilla JS fetch requests (`/api/...`) that poll the backend for map data every 5 seconds and update the DOM dynamically without page reloads.
+- **Hardware Bridging:** The `meshtastic` Python library. It opens a serial connection to the Gateway Node plugged into the laptop via USB, reading binary packets off the radio and injecting them into the Flask API. In production, the RadioHatTransport adapter connects via SPI GPIO on a Raspberry Pi.

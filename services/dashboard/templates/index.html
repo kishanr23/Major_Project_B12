@@ -52,6 +52,27 @@
             pointer-events: auto;
         }
 
+        .glass-widget {
+            background-color: rgba(30, 41, 59, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .hover-glow:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            border-color: rgba(255, 255, 255, 0.2) !important;
+            transform: translateY(-2px);
+        }
+
+        .hover-glow-primary:hover {
+            background-color: rgba(249, 115, 22, 0.15) !important;
+            border-color: rgba(249, 115, 22, 0.4) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.2);
+        }
+
         .widget-title {
             font-size: 0.9rem;
             color: var(--text-main);
@@ -119,6 +140,39 @@
         color: var(--text-main) !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
     }
+    .toast-container {
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        pointer-events: none;
+    }
+    
+    .toast-alert {
+        background: rgba(225, 29, 72, 0.9);
+        backdrop-filter: blur(10px);
+        color: white;
+        padding: 16px 24px;
+        border-radius: var(--radius-md);
+        box-shadow: 0 10px 25px rgba(225, 29, 72, 0.4);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-weight: 600;
+        pointer-events: auto;
+        cursor: pointer;
+        animation: slideDown 0.3s ease-out forwards;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    @keyframes slideDown {
+        from { transform: translateY(-50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
 </style>
 {% endblock %}
 
@@ -127,19 +181,34 @@
 
 <!-- Bottom Left Widgets -->
 <div class="bottom-panel-row">
-    <div class="widget" style="width: 300px; height: 200px;">
-        <div class="widget-title">Mesh Node Topology</div>
-        <canvas id="topologyChart"></canvas>
-    </div>
-    <div class="widget" style="width: 250px; height: 200px; display: flex; flex-direction: column; justify-content: space-between;">
-        <div class="widget-title">Hiker Activity</div>
-        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 8px;">
-            <div style="font-size: 0.75rem; color: var(--text-muted);">Total Hikers</div>
-            <div style="font-size: 1.5rem; font-weight: bold;">48</div>
+    <div class="widget glass-widget" style="width: 320px; height: 180px; display: flex; flex-direction: column; padding: 12px 16px;">
+        <div class="widget-title" style="margin-bottom: 4px; font-size: 0.85rem; letter-spacing: 0.5px;">
+            <i class="fa-solid fa-network-wired" style="color: var(--primary);"></i> MESH NODE TOPOLOGY
         </div>
-        <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm);">
-            <div style="font-size: 0.75rem; color: var(--text-muted);">Active Check-ins</div>
-            <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">13</div>
+        <div style="flex: 1; position: relative; width: 100%; margin-top: 8px;">
+            <canvas id="topologyChart"></canvas>
+        </div>
+    </div>
+
+    <div class="widget glass-widget" style="width: 260px; height: 180px; display: flex; flex-direction: column; padding: 12px 16px;">
+        <div class="widget-title" style="margin-bottom: 12px; font-size: 0.85rem; letter-spacing: 0.5px;">
+            <i class="fa-solid fa-users" style="color: var(--primary);"></i> HIKER ACTIVITY
+        </div>
+        
+        <div style="display: flex; gap: 12px; height: 100%;">
+            <!-- Total Hikers -->
+            <div class="hover-glow" style="flex: 1; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 0.3s ease; cursor: default;">
+                <i class="fa-solid fa-person-hiking" style="font-size: 1.2rem; color: var(--text-muted); margin-bottom: 8px;"></i>
+                <div style="font-size: 1.8rem; font-weight: 700; line-height: 1; color: var(--text-main);" id="total-hikers-count">0</div>
+                <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 6px;">Total</div>
+            </div>
+            
+            <!-- Active Check-ins -->
+            <div class="hover-glow-primary" style="flex: 1; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.2); border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 0.3s ease; cursor: default;">
+                <i class="fa-solid fa-location-dot" style="font-size: 1.2rem; color: var(--primary); margin-bottom: 8px;"></i>
+                <div style="font-size: 1.8rem; font-weight: 700; color: var(--primary); line-height: 1;" id="active-checkins-count">0</div>
+                <div style="font-size: 0.65rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-top: 6px;">Active</div>
+            </div>
         </div>
     </div>
 </div>
@@ -188,6 +257,9 @@
         </div>
     </div>
 </div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="toast-container"></div>
 
 <script>
     const map = L.map('map', { zoomControl: false }).setView([13.2505, 75.2530], 11); // Kudremukh, Karnataka
@@ -259,6 +331,14 @@
         log.insertBefore(card, log.firstChild);
     }
 
+    function updateHikerStats() {
+        const total = Object.keys(markers).length;
+        const totalEl = document.getElementById('total-hikers-count');
+        const activeEl = document.getElementById('active-checkins-count');
+        if(totalEl) totalEl.innerText = total;
+        if(activeEl) activeEl.innerText = total; // Simplified: active equals total unique hikers on map
+    }
+
     socket.on('new_message', (msg) => {
         addMessageToPanel(msg);
         
@@ -278,8 +358,29 @@
                 markers[msg.hiker_id] = L.marker([msg.lat, msg.lon], { icon: icon }).bindPopup(popupHtml).addTo(map);
             }
 
+            updateHikerStats();
+
             if (msg.msg_type === 'SOS') {
                 map.flyTo([msg.lat, msg.lon], 14, { animate: true, duration: 1.5 });
+                
+                // Show SOS Popup Toast
+                const toastContainer = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'toast-alert';
+                toast.innerHTML = `
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem;"></i>
+                    <div>
+                        <div style="font-size: 1.1rem;">EMERGENCY SOS RECEIVED</div>
+                        <div style="font-size: 0.85rem; opacity: 0.9; font-weight: 400;">Hiker: ${msg.hiker_id.substring(0,8)}... Tap to view alerts.</div>
+                    </div>
+                `;
+                toast.onclick = () => window.location.href = "{{ url_for('admin.sos_alerts') }}";
+                toastContainer.appendChild(toast);
+                
+                // Auto-remove after 10 seconds
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 10000);
             }
         }
     });
@@ -307,6 +408,7 @@
         .then(res => res.json())
         .then(messages => {
             messages.reverse().forEach(msg => {
+                msg.timestamp = msg.timestamp_unix; // Normalize timestamp property
                 if(msg.payload_json) {
                     try {
                         const payload = JSON.parse(msg.payload_json);
@@ -324,6 +426,7 @@
                         .addTo(map);
                 }
             });
+            updateHikerStats();
             // Auto fit bounds if markers exist
             const group = new L.featureGroup(Object.values(markers));
             if(Object.keys(markers).length > 0) {
@@ -351,10 +454,26 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#F97316',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1
+                    }
+                },
                 scales: {
                     x: { display: false },
-                    y: { display: false }
+                    y: { display: false, min: 0 }
+                },
+                elements: {
+                    point: {
+                        radius: 3,
+                        hoverRadius: 6,
+                        backgroundColor: '#F97316'
+                    }
                 }
             }
         });

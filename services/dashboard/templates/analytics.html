@@ -13,6 +13,17 @@
     </select>
 </div>
 
+<div class="grid-2" style="margin-bottom: 24px;">
+    <div class="card" style="margin-bottom: 0;">
+        <span class="stat-label">Total SOS Alerts Requested</span>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--danger);">{{ sos_count }}</div>
+    </div>
+    <div class="card" style="margin-bottom: 0;">
+        <span class="stat-label">Total Routine Check-Ins</span>
+        <div style="font-size: 2rem; font-weight: 700; color: var(--primary);">{{ checkin_count }}</div>
+    </div>
+</div>
+
 <div class="grid-2">
     <!-- Chart 1 -->
     <div class="card" style="margin-bottom: 0;">
@@ -35,30 +46,6 @@
                 <div id="analytics-mini-map" style="width: 100%; height: 100%;"></div>
             </div>
         </div>
-    </div>
-    
-
-
-    <!-- SOS History -->
-    <div class="card" style="margin-bottom: 0;">
-        <div class="card-header">
-            <span class="card-title">SOS Incident History</span>
-        </div>
-        <div style="height: 250px; overflow-y: auto;">
-            {% for _ in range(3) %}
-            <div style="background-color: rgba(0,0,0,0.2); padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="font-weight: 600; color: var(--text-main);">SOS Incident</span>
-                    <span class="badge badge-danger">New</span>
-                </div>
-                <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    Hiker: 8f92a1c4...<br>
-                    Resolved by: System <span style="float: right;">10:30 AM</span>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
 </div>
 {% endblock %}
 

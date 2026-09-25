@@ -25,6 +25,6 @@ TrailGuard solves this by utilizing a decentralized **LoRa (Long Range) Radio Me
 - **Security:** Anyone can buy a LoRa radio and listen to the frequencies. TrailGuard must ensure that a malicious actor cannot spoof a hiker's SOS signal, replay old check-ins, or alter hiker locations. Cryptographic signatures (Ed25519) are strictly enforced.
 
 ## 5. Summary of System Components
-1. **TrailGuard Mobile App (React Native):** The user interface for the hiker. Works fully offline with downloaded maps.
-2. **TrailGuard Firmware (C++ / ESP32):** The custom logic running on the LoRa radios (Heltec boards) that handles routing, cryptography, and Bluetooth communication.
-3. **TrailGuard Dashboard (Python / Flask):** The Ranger interface for tracking, administration, and emergency response management.
+1. **TrailGuard Mobile App (React Native):** The user interface for the hiker. Works fully offline with downloaded maps. Features Ed25519 key generation, BLE node pairing, offline mapping (MapLibre + MBTiles), Check-In/SOS with delivery confirmation (Ack round-trip), compass/bearing navigation, and RSSI-based node roaming.
+2. **TrailGuard Firmware (C++ / ESP32):** The custom logic running on the LoRa radios (Heltec boards) that handles routing, Ed25519 cryptographic verification (TweetNaCl), O(1) replay protection (djb2-64 hash ring with partitioned buffers), per-type payload size enforcement, strict priority queueing (SOS > CheckIn > TrailMessage), and adaptive sleep based on battery/solar telemetry.
+3. **TrailGuard Dashboard (Python / Flask):** The Ranger interface featuring a live Leaflet.js map, real-time updates via Socket.IO, SOS alert management (acknowledge/resolve workflow), SecurityMonitor for attack detection (per-hiker and fleet-wide escalation), TOFU key registration, trail catalog management, user authentication with role-based access, and a full security audit log.

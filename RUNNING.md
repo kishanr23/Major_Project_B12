@@ -1,23 +1,26 @@
 # Running TrailGuard
 
-Because the TrailGuard repository is segregated into purpose-built modules, you need to run each service from its respective directory.
+Because the TrailGuard repository is organized into a monorepo structure, you must navigate into each module's specific directory before running it.
 
-Here are the commands to run each part of the system:
+Here is the quick-start guide to running the system locally:
 
-## 1. Web Dashboard (Flask)
-The dashboard is the central incident management system.
+## 1. Web Dashboard (Flask API & UI)
+The Ranger dashboard is the core incident management system for monitoring hikers.
 
 ```powershell
 # Open a terminal and navigate to the dashboard directory
-cd services
+cd services/dashboard
+
+# Install requirements (if not already done)
+pip install -r ../../requirements.txt # or setup your venv
 
 # Run the Flask app
-python -m dashboard.app
+python app.py
 ```
 > The dashboard will be accessible at `http://localhost:5000`.
 
 ## 2. LoRa Gateway (Serial Adapter)
-The gateway reads packets from the physical LoRa nodes over USB/Serial and forwards them to the dashboard.
+The gateway reads binary packets from the physical ESP32 LoRa nodes over USB/Serial and forwards them into the dashboard.
 
 ```powershell
 # Open a new terminal and navigate to the gateway directory

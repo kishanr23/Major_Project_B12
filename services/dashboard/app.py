@@ -22,14 +22,25 @@ from dashboard.routes import admin_bp, auth_bp, gateway_bp, mobile_bp, api_bp, t
 BASE_DIR = Path(__file__).parent
 DB_PATH  = BASE_DIR / "trailguard.db"
 
+IS_DEV = os.environ.get("FLASK_ENV", "development") == "development"
+
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
-app.config["SECRET_KEY"] = os.environ.get("TRAILGUARD_SECRET", "dev-secret-change-in-prod")
+
+_secret = os.environ.get("TRAILGUARD_SECRET", "")
+if not _secret and not IS_DEV:
+    raise RuntimeError(
+        "TRAILGUARD_SECRET environment variable must be set in production. "
+        "Set FLASK_ENV=development to bypass this check."
+    )
+app.config["SECRET_KEY"] = _secret or "dev-secret-change-in-prod"
 app.config["UPLOAD_FOLDER"] = str(BASE_DIR / "uploads")
 app.config["BASE_DIR"] = BASE_DIR
 app.config["DB_PATH"] = str(DB_PATH)
+app.config["IS_DEV"] = IS_DEV
 
 init_auth(app)
-socketio.init_app(app, cors_allowed_origins="*")
+cors_origins = "*" if IS_DEV else os.environ.get("TRAILGUARD_CORS_ORIGINS", "http://localhost:5000")
+socketio.init_app(app, cors_allowed_origins=cors_origins)
 
 # Register Blueprints
 app.register_blueprint(admin_bp)
@@ -119,7 +130,9 @@ def init_db() -> None:
         """)
     print("[DASHBOARD] Database initialised.")
 
+# Always ensure tables exist on import
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     print("[DASHBOARD] Starting TrailGuard dashboard on http://localhost:5000")
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, host="0.0.0.0", port=5000, debug=IS_DEV, allow_unsafe_werkzeug=IS_DEV)

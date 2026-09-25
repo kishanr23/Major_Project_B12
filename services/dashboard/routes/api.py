@@ -71,6 +71,9 @@ def api_nodes():
 @api_bp.post("/api/demo-ingest")
 def demo_ingest():
     import json
+    from flask import current_app
+    if not current_app.config.get("IS_DEV", False):
+        return jsonify({"error": "Demo ingest is disabled in production"}), 403
     from dashboard.core.crypto import message_id, build_ack_payload, GATEWAY_SK
     data = request.get_json(force=True)
     db = get_db(current_app.config["DB_PATH"])
