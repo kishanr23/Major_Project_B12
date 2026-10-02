@@ -154,9 +154,11 @@ def configure_node(port, cfg):
     run_meshtastic(port, "--set", "bluetooth.mode", "NO_PIN")
     time.sleep(1)
 
-    # 4. Set LoRa region
-    print(f"[4/5] Setting LoRa region to {LORA_REGION}...")
+    # 4. Set LoRa region and network parameters
+    print(f"[4/5] Setting LoRa region to {LORA_REGION}, Hop Limit to 3, Preset to LONG_FAST...")
     run_meshtastic(port, "--set", "lora.region", LORA_REGION)
+    run_meshtastic(port, "--set", "lora.hop_limit", "3")
+    run_meshtastic(port, "--set", "lora.modem_preset", "LONG_FAST")
     time.sleep(1)
 
     # 5. Enable always-on OLED display with message carousel
@@ -165,8 +167,12 @@ def configure_node(port, cfg):
     run_meshtastic(port, "--set", "display.autoScreenCarouselSecs", "5")
     time.sleep(1)
 
+    # 6. Apply Reboot
+    print("[6/6] Rebooting node to apply changes...")
+    run_meshtastic(port, "--reboot")
+
     print(f"\n  DONE: {long_name} configured successfully!")
-    print(f"  The board will reboot. Bluetooth will advertise as '{long_name}'.")
+    print(f"  The board is rebooting. Bluetooth will advertise as '{long_name}'.")
     print(f"  No PIN is required for pairing.\n")
 
 
