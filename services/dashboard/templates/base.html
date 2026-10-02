@@ -10,6 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
     <!-- Global Styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block extra_head %}{% endblock %}
@@ -105,8 +107,54 @@
 
     {% block scripts %}{% endblock %}
     
-    <!-- Performance Monitor -->
+    <!-- Global Socket & Performance Monitor -->
     <script>
+        // Global socket instance
+        window.socket = io();
+        
+        window.socket.on('new_message', (msg) => {
+            if (msg.msg_type === 'SOS') {
+                // Play alarm sound (using browser's Audio context, might need interaction first)
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+                    osc.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.4);
+                } catch(e) {}
+                
+                // Show persistent SOS banner
+                const banner = document.createElement('div');
+                banner.style.position = 'fixed';
+                banner.style.top = '0';
+                banner.style.left = '0';
+                banner.style.width = '100%';
+                banner.style.backgroundColor = 'var(--danger)';
+                banner.style.color = '#fff';
+                banner.style.padding = '16px';
+                banner.style.textAlign = 'center';
+                banner.style.fontWeight = 'bold';
+                banner.style.zIndex = '9999';
+                banner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+                banner.style.display = 'flex';
+                banner.style.justifyContent = 'center';
+                banner.style.alignItems = 'center';
+                banner.style.gap = '16px';
+                banner.innerHTML = `
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem;"></i>
+                    <span style="font-size: 1.2rem;">CRITICAL: SOS ALERT FROM ${msg.hiker_id.substring(0,8)}...</span>
+                    <button onclick="this.parentElement.remove(); window.location.href='{{ url_for('admin.sos_alerts') }}'" 
+                            style="background: #fff; color: var(--danger); border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                        View Alerts
+                    </button>
+                `;
+                document.body.appendChild(banner);
+            }
+        });
+
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const perf = window.performance.timing;

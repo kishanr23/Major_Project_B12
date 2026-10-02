@@ -7,8 +7,6 @@
 <!-- Leaflet CSS & JS (Using fast Cloudflare CDN) -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<!-- Socket.IO (Using CDNJS instead of cdn.socket.io to avoid firewall timeouts) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -272,7 +270,7 @@
     }).addTo(map);
 
     const markers = {};
-    const socket = io();
+    const socket = window.socket;
 
     socket.on('connect', () => {
         document.getElementById('connection-status').className = 'badge badge-success';

@@ -30,6 +30,26 @@
         </div>
     </div>
 
+    <!-- Set Location Modal -->
+    <div id="loc-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center;">
+        <div class="card" style="width: 380px; padding: 28px; position: relative;">
+            <button onclick="document.getElementById('loc-modal').style.display='none'" style="position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">✕</button>
+            <h3 style="margin-bottom: 6px; color: var(--text-main);">📍 Set Node Location</h3>
+            <p id="loc-node-label" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;"></p>
+            <input type="hidden" id="loc-node-id">
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 0.88rem;">Latitude</label>
+                <input type="number" id="loc-lat" step="0.000001" placeholder="e.g. 13.4200" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-main);">
+            </div>
+            <div style="margin-bottom: 22px;">
+                <label style="display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 0.88rem;">Longitude</label>
+                <input type="number" id="loc-lon" step="0.000001" placeholder="e.g. 75.7382" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-main);">
+            </div>
+            <div id="loc-status" style="margin-bottom: 12px; font-size: 0.85rem; color: var(--accent-green);"></div>
+            <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="saveLocation()">Save Location</button>
+        </div>
+    </div>
+
     <div class="grid-2" style="flex: 1; overflow: hidden; gap: 0;">
         <!-- Left Map -->
         <div style="background-color: #e5e5e5; border-radius: var(--radius-md) 0 0 var(--radius-md); overflow: hidden; position: relative;">
@@ -43,23 +63,33 @@
                     <tr>
                         <th>Node ID</th>
                         <th>Location</th>
-                        <th>Signal Strength (RSSI)</th>
-                        <th>Connectivity Status</th>
-                        <th>Active Hiker Hops</th>
+                        <th>Battery</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for n in nodes %}
                     <tr>
-                        <td style="font-weight: 500;">{{ n.node_id }}</td>
-                        <td>{{ n.latitude|round(4) }}, {{ n.longitude|round(4) }}</td>
-                        <td>{{ n.battery_pct|round(0) }}% Battery</td>
+                        <td style="font-weight: 500; font-family: monospace;">{{ n.node_id }}</td>
                         <td>
-                            {% set now = namespace(value=0) %}
-                            {# Approximate connectivity check #}
-                            <span class="badge badge-success">Connected</span>
+                            {% if n.latitude is not none and n.longitude is not none %}
+                                📍 {{ n.latitude|round(5) }}, {{ n.longitude|round(5) }}
+                            {% else %}
+                                <span style="color: var(--text-muted);">No GPS set</span>
+                            {% endif %}
                         </td>
-                        <td>0</td>
+                        <td>
+                            {% if n.battery_pct is not none %}
+                                {{ n.battery_pct|round(0)|int }}%
+                            {% else %}
+                                <span style="color: var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge badge-success">Active</span></td>
+                        <td>
+                            <button class="btn" style="padding: 5px 12px; font-size: 0.8rem;" onclick="openLocModal('{{ n.node_id }}', {{ n.latitude or 0 }}, {{ n.longitude or 0 }})">📍 Set Location</button>
+                        </td>
                     </tr>
                     {% endfor %}
                     {% if not nodes %}
@@ -76,8 +106,81 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
-    const map = L.map('mini-map', { zoomControl: false }).setView([13.420, 75.250], 12);
+    // ── Map ──────────────────────────────────────────────────────────────────
+    const map = L.map('mini-map', { zoomControl: false }).setView([13.420, 75.250], 10);
     L.control.zoom({ position: 'topleft' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const nodeMarkers = {};
+
+    // Plot any nodes that already have GPS
+    {% for n in nodes %}
+    {% if n.latitude and n.longitude %}
+    (function() {
+        const marker = L.marker([{{ n.latitude }}, {{ n.longitude }}])
+            .addTo(map)
+            .bindPopup('<b>{{ n.node_id }}</b><br>{{ n.latitude|round(5) }}, {{ n.longitude|round(5) }}');
+        nodeMarkers['{{ n.node_id }}'] = marker;
+    })();
+    {% endif %}
+    {% endfor %}
+
+    // ── Location Modal ───────────────────────────────────────────────────────
+    function openLocModal(nodeId, lat, lon) {
+        document.getElementById('loc-node-id').value = nodeId;
+        document.getElementById('loc-node-label').textContent = 'Node: ' + nodeId;
+        document.getElementById('loc-lat').value = lat || '';
+        document.getElementById('loc-lon').value = lon || '';
+        document.getElementById('loc-status').textContent = '';
+        document.getElementById('loc-modal').style.display = 'flex';
+    }
+
+    async function saveLocation() {
+        const nodeId = document.getElementById('loc-node-id').value;
+        const lat    = parseFloat(document.getElementById('loc-lat').value);
+        const lon    = parseFloat(document.getElementById('loc-lon').value);
+        const status = document.getElementById('loc-status');
+
+        if (!nodeId || isNaN(lat) || isNaN(lon)) {
+            status.style.color = '#ff6b6b';
+            status.textContent = 'Please enter valid lat/lon values.';
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/node-location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ node_id: nodeId, lat, lon }),
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                status.style.color = 'var(--accent-green)';
+                status.textContent = '✅ Location saved!';
+
+                // Update or add map marker
+                if (nodeMarkers[nodeId]) {
+                    nodeMarkers[nodeId].setLatLng([lat, lon])
+                        .setPopupContent('<b>' + nodeId + '</b><br>' + lat.toFixed(5) + ', ' + lon.toFixed(5));
+                } else {
+                    nodeMarkers[nodeId] = L.marker([lat, lon]).addTo(map)
+                        .bindPopup('<b>' + nodeId + '</b><br>' + lat.toFixed(5) + ', ' + lon.toFixed(5));
+                }
+                map.setView([lat, lon], 13);
+
+                // Close after 1.5s
+                setTimeout(() => {
+                    document.getElementById('loc-modal').style.display = 'none';
+                    location.reload();
+                }, 1500);
+            } else {
+                status.style.color = '#ff6b6b';
+                status.textContent = 'Error: ' + (data.error || 'Unknown error');
+            }
+        } catch (e) {
+            status.style.color = '#ff6b6b';
+            status.textContent = 'Network error: ' + e.message;
+        }
+    }
 </script>
 {% endblock %}

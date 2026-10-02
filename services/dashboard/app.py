@@ -8,9 +8,13 @@ and sets up database / websockets.
 from __future__ import annotations
 
 import os
+import sys
 import sqlite3
 from pathlib import Path
 from typing import Any
+
+# Ensure 'dashboard' module can be found if running directly from services/dashboard
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from flask import Flask, g
 from dashboard.core.auth import init_auth

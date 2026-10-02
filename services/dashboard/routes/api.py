@@ -68,6 +68,77 @@ def api_nodes():
     cur = db.execute("SELECT * FROM nodes ORDER BY node_id")
     return jsonify([dict(r) for r in cur.fetchall()])
 
+
+@api_bp.post("/api/node-location")
+@login_required
+@require_role("admin")
+def set_node_location():
+    """Manually set a node's fixed GPS location (admin override — no hardware needed)."""
+    data = request.get_json(silent=True) or {}
+    node_id = data.get("node_id", "").strip()
+    lat = data.get("lat")
+    lon = data.get("lon")
+    label = data.get("label", "")
+
+    if not node_id or lat is None or lon is None:
+        return jsonify({"error": "node_id, lat, lon required"}), 400
+
+    db  = get_db(current_app.config["DB_PATH"])
+    now = int(time.time())
+    db.execute(
+        """INSERT INTO nodes (node_id, last_seen_unix, latitude, longitude)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(node_id) DO UPDATE SET
+               latitude  = excluded.latitude,
+               longitude = excluded.longitude""",
+        (node_id, now, float(lat), float(lon)),
+    )
+    db.commit()
+
+    socketio.emit("node_update", {"node_id": node_id, "lat": float(lat), "lon": float(lon), "label": label})
+    print(f"[DASHBOARD] Location set for {node_id}: {lat}, {lon}")
+    return jsonify({"status": "ok", "node_id": node_id, "lat": lat, "lon": lon})
+
+
+@api_bp.post("/api/node-heartbeat")
+def node_heartbeat():
+    """
+    Lightweight heartbeat posted by the serial bridge for every Meshtastic
+    packet (including plain-text and NODEINFO).  No auth required — the bridge
+    runs locally and this endpoint only upserts a node row.
+    """
+    data    = request.get_json(force=True) or {}
+    node_id = data.get("node_id", "").strip()
+    if not node_id:
+        return jsonify({"error": "node_id required"}), 400
+
+    db  = get_db(current_app.config["DB_PATH"])
+    now = int(time.time())
+    lat = data.get("lat")
+    lon = data.get("lon")
+
+    db.execute(
+        """INSERT INTO nodes (node_id, last_seen_unix, latitude, longitude)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(node_id) DO UPDATE SET
+               last_seen_unix = excluded.last_seen_unix,
+               latitude       = COALESCE(excluded.latitude,  nodes.latitude),
+               longitude      = COALESCE(excluded.longitude, nodes.longitude)""",
+        (node_id, now, lat, lon),
+    )
+    db.commit()
+
+    socketio.emit("node_update", {
+        "node_id":        node_id,
+        "last_seen_unix": now,
+        "lat":            lat,
+        "lon":            lon,
+    })
+
+    print(f"[DASHBOARD] Heartbeat from node {node_id} @ {now}")
+    return jsonify({"status": "ok", "node_id": node_id})
+
+
 @api_bp.post("/api/demo-ingest")
 def demo_ingest():
     import json

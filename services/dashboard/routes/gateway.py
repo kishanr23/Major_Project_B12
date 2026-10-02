@@ -84,7 +84,14 @@ def ingest():
     pubkey_hex     = data["public_key_hex"]
     sig_bytes      = bytes.fromhex(data["signature_hex"])
     payload_json   = data.get("payload_json", "{}")
-    payload_bytes  = payload_json.encode("utf-8")
+    
+    # The mobile app signs the raw protobuf bytes, not the JSON
+    protobuf_b64 = data.get("protobuf_b64")
+    if protobuf_b64:
+        import base64
+        payload_bytes = base64.b64decode(protobuf_b64)
+    else:
+        payload_bytes = payload_json.encode("utf-8")
 
     if is_replay(hiker_id, msg_type, ts, now):
         print(f"[DASHBOARD] Dropped replay: {msg_type} from {hiker_id} @ {ts}")
@@ -108,6 +115,25 @@ def ingest():
         db.commit()
     except Exception as e:
         logging.debug(f"Duplicate or DB error for message_id={mid}: {e}")
+
+    # ── Auto-register / heartbeat the node ────────────────────────────────────
+    try:
+        payload_obj_for_node = json.loads(payload_json)
+        node_lat = payload_obj_for_node.get("lat") or payload_obj_for_node.get("hiker_lat")
+        node_lon = payload_obj_for_node.get("lon") or payload_obj_for_node.get("hiker_lon")
+        db.execute(
+            """INSERT INTO nodes (node_id, last_seen_unix, latitude, longitude)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(node_id) DO UPDATE SET
+                   last_seen_unix = excluded.last_seen_unix,
+                   latitude       = COALESCE(excluded.latitude,  nodes.latitude),
+                   longitude      = COALESCE(excluded.longitude, nodes.longitude)""",
+            (node_id, now, node_lat, node_lon),
+        )
+        db.commit()
+        print(f"[DASHBOARD] Node heartbeat: {node_id} last_seen={now}")
+    except Exception as e:
+        logging.warning(f"Failed to upsert node {node_id}: {e}")
 
     ack_event: dict | None = None
     if msg_type in ("SOS", "CheckIn"):
