@@ -33,8 +33,7 @@ if __name__ == "__main__":
     my_node = nodes.get(my_id, {}).get("user", {})
     print(f"\nSender Node  : {my_node.get('longName', 'Unknown')} ({my_id})")
     print(f"Firmware     : {iface.metadata.firmware_version if iface.metadata else '?'}")
-    print(f"LoRa Region  : {iface.localConfig.lora.region if iface.localConfig else '?'}")
-    print(f"Hop Limit    : {iface.localConfig.lora.hop_limit if iface.localConfig else '?'}")
+    
 
     # Print known nodes
     print(f"\nKnown nodes in mesh:")

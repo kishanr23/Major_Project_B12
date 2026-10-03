@@ -178,17 +178,7 @@
 <div id="map"></div>
 
 <!-- Bottom Left Widgets -->
-<div class="bottom-panel-row">
-    <div class="widget glass-widget" style="width: 320px; height: 180px; display: flex; flex-direction: column; padding: 12px 16px;">
-        <div class="widget-title" style="margin-bottom: 4px; font-size: 0.85rem; letter-spacing: 0.5px;">
-            <i class="fa-solid fa-network-wired" style="color: var(--primary);"></i> MESH NODE TOPOLOGY
-        </div>
-        <div style="flex: 1; position: relative; width: 100%; margin-top: 8px;">
-            <canvas id="topologyChart"></canvas>
-        </div>
-    </div>
-
-    <div class="widget glass-widget" style="width: 260px; height: 180px; display: flex; flex-direction: column; padding: 12px 16px;">
+<div class="bottom-panel-row">    <div class="widget glass-widget" style="width: 260px; height: 180px; display: flex; flex-direction: column; padding: 12px 16px;">
         <div class="widget-title" style="margin-bottom: 12px; font-size: 0.85rem; letter-spacing: 0.5px;">
             <i class="fa-solid fa-users" style="color: var(--primary);"></i> HIKER ACTIVITY
         </div>
@@ -214,36 +204,6 @@
 <!-- Right Panel Stack -->
 <div class="right-panel-stack">
     
-    <!-- System Vitals -->
-    <div class="widget">
-        <div class="widget-title">System Vitals</div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Connection</span>
-            <span style="font-size: 0.8rem; color: var(--success); font-weight: bold;">100%</span>
-        </div>
-        <div style="width: 100%; height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; margin-bottom: 16px;">
-            <div style="width: 100%; height: 100%; background: var(--success);"></div>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Power</span>
-            <span style="font-size: 0.8rem; color: var(--primary); font-weight: bold;">62 mins</span>
-        </div>
-        <div style="width: 100%; height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden;">
-            <div style="width: 62%; height: 100%; background: var(--primary);"></div>
-        </div>
-    </div>
-
-    <!-- Emergency Dispatch -->
-    <div class="widget">
-        <div class="widget-title">Emergency Dispatch</div>
-        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 8px; color: var(--success); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-check-circle"></i> Routine Activity
-        </div>
-        <div style="background: rgba(225, 29, 72, 0.1); border: 1px solid rgba(225, 29, 72, 0.2); padding: 12px; border-radius: var(--radius-sm); color: var(--danger); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-triangle-exclamation"></i> Total SOS Incidents: 0
-        </div>
-    </div>
-
     <!-- Live Feed (Messages) -->
     <div class="widget" style="flex: 1; display: flex; flex-direction: column; min-height: 300px;">
         <div class="widget-title" style="justify-content: space-between;">
@@ -431,50 +391,5 @@
                 map.fitBounds(group.getBounds().pad(0.1));
             }
         });
-
-    // Chart.js initialization for Mesh Node Topology
-    const ctx = document.getElementById('topologyChart');
-    if (ctx) {
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['14:00', '16:00', '18:00', '20:00', '22:00'],
-                datasets: [{
-                    label: 'Active Nodes',
-                    data: [2, 4, 3, 7, 12],
-                    borderColor: '#F97316',
-                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#fff',
-                        bodyColor: '#F97316',
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderWidth: 1
-                    }
-                },
-                scales: {
-                    x: { display: false },
-                    y: { display: false, min: 0 }
-                },
-                elements: {
-                    point: {
-                        radius: 3,
-                        hoverRadius: 6,
-                        backgroundColor: '#F97316'
-                    }
-                }
-            }
-        });
-    }
 </script>
 {% endblock %}

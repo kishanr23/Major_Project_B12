@@ -5,15 +5,22 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#ifndef REAL_HARDWARE
+#ifdef REAL_HARDWARE
+// On ESP32, use the hardware RNG
+extern "C" {
+#include "esp_random.h"
+}
+extern "C" void randombytes(unsigned char *x, unsigned long long xlen) {
+    esp_fill_random(x, (size_t)xlen);
+}
+#else
 #ifndef TEST_BUILD
 #error "REAL_HARDWARE not defined! Do not ship dummy RNG to production."
 #endif
-// TweetNaCl requires an external randombytes function.
-// Mocking it for Phase 2 simulation. In production ESP32, this calls esp_fill_random.
-extern "C" void randombytes(unsigned char * x, unsigned long long xlen) {
+// Mock RNG for simulation/test builds only
+extern "C" void randombytes(unsigned char *x, unsigned long long xlen) {
     for (unsigned long long i = 0; i < xlen; ++i) {
-        x[i] = rand() & 0xFF; // Mock RNG — replaced by esp_fill_random on REAL_HARDWARE
+        x[i] = rand() & 0xFF;
     }
 }
 #endif
@@ -23,11 +30,7 @@ namespace crypto {
 
 // Maximum serialized payload size the crypto layer will ever accept.
 // Sized to the largest per-type cap (SOS = 256 bytes, see TrailGuardModule.h).
-// The original code had a VLA here (`uint8_t sm[SIGNATURE_SIZE + message_len]`)
-// which is unbounded on the stack. This fixed-size array eliminates that VLA
-// entirely; the explicit bounds check below ensures message_len can never push
-// past this ceiling, so the fixed arrays are always large enough.
-static constexpr size_t MAX_CRYPTO_PAYLOAD = 256; // == MAX_PAYLOAD_SOS in TrailGuardModule.h
+static constexpr size_t MAX_CRYPTO_PAYLOAD = 256;
 
 bool verify_signature(
     const uint8_t* public_key,
@@ -35,15 +38,12 @@ bool verify_signature(
     size_t message_len,
     const uint8_t* signature
 ) {
-    // Explicit bounds check before touching the fixed-size stack buffers.
-    // This replaces the original VLA that was unbounded by message_len.
     if (message_len > MAX_CRYPTO_PAYLOAD) {
         printf("Crypto: verify_signature rejected oversized payload (%zu > %zu)\n", message_len, MAX_CRYPTO_PAYLOAD);
         return false;
     }
 
-    // Fixed-size buffers: 320 bytes each on the stack (SIGNATURE_SIZE=64 + MAX_CRYPTO_PAYLOAD=256).
-    // TweetNaCl crypto_sign_open expects layout: [ signature (64B) | message (N B) ]
+    // Fixed-size buffers: TweetNaCl layout: [ signature (64B) | message (N B) ]
     uint8_t sm[SIGNATURE_SIZE + MAX_CRYPTO_PAYLOAD];
     uint8_t m[SIGNATURE_SIZE + MAX_CRYPTO_PAYLOAD];
 
@@ -61,19 +61,17 @@ void sign_message(
     size_t message_len,
     uint8_t* signature_out
 ) {
-    // Same bounds check as verify_signature; replaces the original VLA.
     if (message_len > MAX_CRYPTO_PAYLOAD) {
         printf("Crypto: sign_message rejected oversized payload (%zu > %zu)\n", message_len, MAX_CRYPTO_PAYLOAD);
         return;
     }
 
-    // Fixed 320-byte buffer. TweetNaCl crypto_sign writes [ signature (64B) | message (N B) ].
     uint8_t sm[SIGNATURE_SIZE + MAX_CRYPTO_PAYLOAD];
     unsigned long long smlen = 0;
 
     crypto_sign(sm, &smlen, message, message_len, private_key);
 
-    // Extract just the 64-byte signature prefix.
+    // Extract just the 64-byte signature prefix
     memcpy(signature_out, sm, SIGNATURE_SIZE);
 }
 
@@ -86,4 +84,3 @@ void generate_keypair(
 
 } // namespace crypto
 } // namespace trailguard
-

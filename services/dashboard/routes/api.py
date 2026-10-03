@@ -200,3 +200,68 @@ def demo_ingest():
             "signature_hex": sig_hex
         }
     }), 200
+
+
+@api_bp.post("/api/plain-sos")
+def plain_sos():
+    """Accept a plain-text LoRa message from the serial bridge (no signature required).
+
+    Used when a node sends a raw text SOS over Meshtastic instead of a signed
+    TrailGuard protobuf. Stores the message and emits a real-time socket event
+    so the SOS alerts page updates immediately.
+    """
+    data = request.get_json(force=True)
+
+    msg_type       = data.get("msg_type", "SOS")
+    hiker_id       = data.get("hiker_id", "unknown")
+    node_id        = data.get("node_id", "unknown")
+    ts             = int(data.get("timestamp_unix", time.time()))
+    payload_json   = data.get("payload_json", "{}")
+
+    now = int(time.time())
+    db  = get_db(current_app.config["DB_PATH"])
+
+    import hashlib, json as _json
+    mid = hashlib.sha256(f"{hiker_id}{node_id}{ts}".encode()).hexdigest()[:32]
+
+    try:
+        db.execute(
+            "INSERT OR IGNORE INTO messages "
+            "(message_id, msg_type, hiker_id, node_id, timestamp_unix, payload_json) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (mid, msg_type, hiker_id, node_id, ts, payload_json),
+        )
+        db.commit()
+        print(f"[DASHBOARD] Plain {msg_type} from {hiker_id} via {node_id} | id={mid}")
+    except Exception as e:
+        print(f"[DASHBOARD] plain-sos DB error: {e}")
+
+    # Register / update node
+    try:
+        db.execute(
+            """INSERT INTO nodes (node_id, last_seen_unix)
+               VALUES (?, ?)
+               ON CONFLICT(node_id) DO UPDATE SET last_seen_unix = excluded.last_seen_unix""",
+            (node_id, now),
+        )
+        db.commit()
+    except Exception:
+        pass
+
+    # Emit real-time socket event to update the alerts page
+    try:
+        payload_obj = _json.loads(payload_json)
+    except Exception:
+        payload_obj = {}
+
+    socketio.emit("new_message", {
+        "msg_type":  msg_type,
+        "hiker_id":  hiker_id,
+        "node_id":   node_id,
+        "timestamp": ts,
+        "is_new_device": False,
+        **payload_obj,
+    })
+
+    return jsonify({"status": "ok", "message_id": mid}), 200
+

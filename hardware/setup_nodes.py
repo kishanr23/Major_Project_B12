@@ -144,9 +144,7 @@ def configure_node(port, cfg):
 
     # 2. Set long name and short name
     print("[2/5] Setting long name and short name...")
-    run_meshtastic(port, "--setlongname", long_name)
-    time.sleep(0.5)
-    run_meshtastic(port, "--setshortname", short_name)
+    run_meshtastic(port, "--set-owner", long_name, "--set-owner-short", short_name)
     time.sleep(1)
 
     # 3. Remove Bluetooth PIN (set mode to NO_PIN)

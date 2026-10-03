@@ -18,9 +18,10 @@ import meshtastic.serial_interface
 from pubsub import pub
 import trailguard_pb2
 
-DASHBOARD_BASE = "http://localhost:5000"
-INGEST_URL     = f"{DASHBOARD_BASE}/ingest"
-HEARTBEAT_URL  = f"{DASHBOARD_BASE}/api/node-heartbeat"
+DASHBOARD_BASE  = "http://localhost:5000"
+INGEST_URL      = f"{DASHBOARD_BASE}/ingest"
+HEARTBEAT_URL   = f"{DASHBOARD_BASE}/api/node-heartbeat"
+PLAIN_SOS_URL   = f"{DASHBOARD_BASE}/api/plain-sos"
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -100,9 +101,8 @@ def on_receive(packet, interface):
                 _handle_tg_legacy(text_msg, node_id, interface)
                 return
 
-            # Plain-text (e.g. 'TRAILGUARD TEST') — node is alive, register it
-            print(f"[Serial Bridge] Plain-text from {node_id} — not a TrailGuard protobuf, heartbeat only.")
-            _send_heartbeat(node_id)
+            # Plain-text message — forward to dashboard and register node
+            _handle_plain_text(text_msg, node_id)
             return
 
         # ── Everything else: heartbeat only ───────────────────────────────────
@@ -111,6 +111,57 @@ def on_receive(packet, interface):
 
     except Exception as e:
         print(f"[Serial Bridge] Error processing packet: {e}")
+
+
+# ── Plain-text message handler ────────────────────────────────────────────────
+
+def _handle_plain_text(text_msg: str, node_id: str):
+    """Forward any plain-text LoRa message to the dashboard.
+
+    Detects:
+      - SOS|NODE=...|TIME=...|MSG=...|ID=...   → msg_type='SOS'
+      - Any text containing SOS / EMERGENCY      → msg_type='SOS'
+      - Everything else                          → msg_type='CheckIn'
+    """
+    import time as _time
+
+    text_upper = text_msg.upper()
+    if "SOS|" in text_upper or text_upper.startswith("SOS") or "EMERGENCY" in text_upper:
+        msg_type = "SOS"
+    else:
+        msg_type = "CheckIn"
+
+    # Parse SOS|NODE=...|TIME=...|MSG=...|ID=... if present
+    node_label = node_id
+    raw_message = text_msg
+    if "SOS|" in text_upper:
+        parts = dict(p.split("=", 1) for p in text_msg.split("|")[1:] if "=" in p)
+        node_label = parts.get("NODE", node_id)
+        raw_message = parts.get("MSG", text_msg)
+
+    payload = {
+        "message": raw_message,
+        "raw_text": text_msg,
+        "lat": None,
+        "lon": None,
+    }
+
+    body = {
+        "msg_type":       msg_type,
+        "hiker_id":       node_label,
+        "node_id":        node_id,
+        "timestamp_unix": int(_time.time()),
+        "payload_json":   json.dumps(payload),
+    }
+
+    print(f"[Serial Bridge] Plain {msg_type} from {node_id}: {repr(text_msg)}")
+    try:
+        resp = requests.post(PLAIN_SOS_URL, json=body, timeout=5)
+        print(f"[Serial Bridge] Dashboard response: {resp.status_code} {resp.text[:120]}")
+    except Exception as e:
+        print(f"[Serial Bridge] Failed to reach dashboard: {e}")
+
+    _send_heartbeat(node_id, label=node_label)
 
 
 # ── TrailGuard protobuf handlers ───────────────────────────────────────────────
@@ -129,19 +180,71 @@ def _handle_tg_payload(text_msg: str, node_id: str, interface):
 
 
 def _handle_tg_legacy(text_msg: str, node_id: str, interface):
-    """Handle TG:<base64_proto>[:<base64_pubkey>] messages."""
+    """Handle TG:<base64_proto>[:<base64_pubkey>] messages from the mobile app.
+
+    When a public key IS present (3 parts), forward to /ingest for full
+    signature verification. When only 2 parts (no pubkey — compact BLE packet),
+    parse the protobuf directly and route via /api/plain-sos so the SOS is
+    stored without failing the signature check.
+    """
+    import time as _time
     parts = text_msg.split(":")
     if len(parts) < 2:
         print("[Serial Bridge] Malformed TG: message — skipping")
         return
-    protobuf_bytes = base64.b64decode(parts[1])
-    pubkey_hex = "0" * 64
-    if len(parts) >= 3:
+
+    has_pubkey = len(parts) >= 3
+
+    if has_pubkey:
+        # Full signed packet — forward to /ingest for crypto verification
+        protobuf_bytes = base64.b64decode(parts[1])
         try:
             pubkey_hex = base64.b64decode(parts[2]).hex()
         except Exception:
-            pass
-    _forward_protobuf(protobuf_bytes, pubkey_hex, node_id, interface)
+            pubkey_hex = "0" * 64
+        _forward_protobuf(protobuf_bytes, pubkey_hex, node_id, interface)
+        return
+
+    # Compact BLE packet (no pubkey) — parse proto and use plain-sos path
+    try:
+        protobuf_bytes = base64.b64decode(parts[1])
+        sos_msg = trailguard_pb2.SOS()
+        sos_msg.ParseFromString(protobuf_bytes)
+
+        hiker_id  = sos_msg.hikerId  or node_id
+        ts        = sos_msg.timestampUnix or int(_time.time())
+        lat       = sos_msg.hikerLat
+        lon       = sos_msg.hikerLon
+        message   = sos_msg.message or "SOS"
+        msg_type  = "SOS" if message else "CheckIn"
+
+        payload = {
+            "message":  message,
+            "raw_text": text_msg[:80],
+            "lat":      lat if lat != 0 else None,
+            "lon":      lon if lon != 0 else None,
+        }
+
+        body = {
+            "msg_type":       msg_type,
+            "hiker_id":       hiker_id,
+            "node_id":        node_id,
+            "timestamp_unix": ts,
+            "payload_json":   json.dumps(payload),
+        }
+
+        print(f"[Serial Bridge] TG-legacy {msg_type} from {hiker_id} via {node_id}: {repr(message)}")
+        try:
+            resp = requests.post(PLAIN_SOS_URL, json=body, timeout=5)
+            print(f"[Serial Bridge] Dashboard response: {resp.status_code} {resp.text[:120]}")
+        except Exception as e:
+            print(f"[Serial Bridge] Failed to reach dashboard: {e}")
+
+        _send_heartbeat(node_id, label=hiker_id)
+
+    except Exception as e:
+        print(f"[Serial Bridge] Failed to parse TG-legacy proto: {e} — falling back to plain-text")
+        _handle_plain_text(text_msg, node_id)
 
 
 def _forward_protobuf(protobuf_bytes: bytes, pubkey_hex: str, node_id: str, interface):
